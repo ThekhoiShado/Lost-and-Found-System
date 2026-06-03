@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>发布审核 - 失物招领管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <style>
+        :root { --sidebar-width: 250px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; }
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #304156; z-index: 100; }
+        .sidebar .logo { height: 60px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); text-decoration: none; }
+        .sidebar .nav { padding: 10px 0; }
+        .sidebar .nav a { display: flex; align-items: center; padding: 12px 20px; color: #bfcbd9; text-decoration: none; font-size: 14px; }
+        .sidebar .nav a:hover, .sidebar .nav a.active { color: #fff; background: rgba(64,158,255,0.3); }
+        .sidebar .nav a i { margin-right: 10px; font-size: 18px; }
+        .sidebar .nav .section { padding: 15px 20px 5px; color: #8899aa; font-size: 12px; }
+        .main-content { margin-left: var(--sidebar-width); min-height: 100vh; }
+        .topbar { height: 60px; background: #fff; border-bottom: 1px solid #e6e6e6; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+        .content { padding: 20px; }
+        .card { border: none; border-radius: 8px; box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+        .detail-panel { background: #fafafa; border-radius: 8px; padding: 20px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a class="logo" href="/admin/dashboard"><i class="bi bi-search"></i>&nbsp; 失物招领管理</a>
+        <div class="nav">
+            <a href="/admin/dashboard"><i class="bi bi-speedometer2"></i> 控制台首页</a>
+            <div class="section">内容管理</div>
+            <a href="/admin/lost/list"><i class="bi bi-journal-text"></i> 失物/寻物管理</a>
+            <a href="/admin/lost/audit" class="active"><i class="bi bi-check-circle"></i> 发布审核</a>
+            <div class="section">认领与互动</div>
+            <a href="/admin/claim/list"><i class="bi bi-file-earmark-text"></i> 认领申请</a>
+            <a href="/admin/comment/list"><i class="bi bi-chat-dots"></i> 评论维护</a>
+            <div class="section">系统设置</div>
+            <a href="/admin/user/list"><i class="bi bi-people"></i> 用户管理</a>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="topbar">
+            <div>发布审核</div>
+            <div><span th:text="${session.adminUser?.username}">管理员</span> <a href="/admin/logout" class="btn btn-sm btn-outline-secondary ms-2">退出</a></div>
+        </div>
+        <div class="content">
+            <div class="card">
+                <div class="card-header"><strong>⏳ 待审核发布</strong></div>
+                <div class="card-body">
+                    <div id="table-container">加载中...</div>
+                    <div id="pagination" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var currentPage = 1;
+        function loadPage(page) {
+            currentPage = page;
+            $.get('/admin/api/lost/list', { current: page, size: 10, status: 0 }, function(res) {
+                if (res.code !== 200) return;
+                var html = '<table class="table table-striped"><thead><tr><th>ID</th><th>标题</th><th>类型</th><th>分类</th><th>发布时间</th><th>操作</th></tr></thead><tbody>';
+                res.data.records.forEach(function(item) {
+                    html += '<tr><td>' + item.id + '</td><td><a href="javascript:showDetail(' + item.id + ')">' + item.title + '</a></td>' +
+                            '<td>' + (item.type===1?'失物招领':'寻物启事') + '</td><td>' + (item.category||'-') + '</td>' +
+                            '<td>' + (item.createTime||'') + '</td>' +
+                            '<td><button class="btn btn-sm btn-success" onclick="audit(' + item.id + ',1)">通过</button> ' +
+                            '<button class="btn btn-sm btn-danger" onclick="audit(' + item.id + ',3)">驳回</button></td></tr>';
+                });
+                if (res.data.records.length === 0) html += '<tr><td colspan="6" class="text-center text-success">🎉 暂无待审核信息</td></tr>';
+                html += '</tbody></table>';
+                $('#table-container').html(html);
+                var total = Math.ceil(res.data.total / res.data.size), pag = '';
+                for (var i = 1; i <= total; i++) pag += '<li class="page-item ' + (i===currentPage?'active':'') + '"><a class="page-link" href="javascript:loadPage('+i+')">'+i+'</a></li>';
+                $('#pagination').html('<nav><ul class="pagination pagination-sm">'+pag+'</ul></nav>');
+            });
+        }
+        function audit(id, status) {
+            if (!confirm(status === 1 ? '确认通过该发布？' : '确认驳回该发布？')) return;
+            $.ajax({ url: '/admin/api/lost/audit/' + id, type: 'PUT', contentType: 'application/json', data: JSON.stringify({status: status}), success: function(r) { alert(r.msg); loadPage(currentPage); } });
+        }
+        function showDetail(id) {
+            $.get('/api/lost/' + id, function(res) {
+                if (res.code !== 200) return;
+                var item = res.data;
+                var html = '<div class="detail-panel"><h5>' + item.title + '</h5>' +
+                    '<p><strong>类型：</strong>' + (item.type===1?'失物招领':'寻物启事') + ' | <strong>分类：</strong>' + (item.category||'-') + '</p>' +
+                    '<p><strong>联系方式：</strong>' + item.contact + ' | <strong>地点：</strong>' + (item.location||'-') + '</p>' +
+                    '<div class="border p-3 my-2">' + item.content + '</div></div>';
+                // 在表格下方显示详情
+                var existing = $('#detail-panel');
+                if (existing.length) existing.remove(); else $('#table-container').after('<div id="detail-panel">'+html+'</div>');
+            });
+        }
+        $(function() { loadPage(1); });
+    </script>
+</body>
+</html>

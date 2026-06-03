@@ -1,0 +1,1 @@
+import{r as e}from"./index-CzBkzS04.js";var t={submit(t){return e.post(`/claim/add`,t)},getMyClaims(t=1,n=10){return e.get(`/claim/my`,{params:{current:t,size:n}})},getDetail(t){return e.get(`/claim/${t}`)}};export{t};

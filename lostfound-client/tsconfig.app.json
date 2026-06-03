@@ -6,6 +6,9 @@
     // Extra safety for array and object lookups, but may have false positives.
     "noUncheckedIndexedAccess": true,
 
+    // 跳过库类型检查（解决 @wangeditor/editor-for-vue 等库的类型声明兼容问题）
+    "skipLibCheck": true,
+
     // Path mapping for cleaner imports.
     "paths": {
       "@/*": ["./src/*"]
