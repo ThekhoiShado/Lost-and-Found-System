@@ -172,7 +172,7 @@ yaml
 spring:
   datasource:
     url: jdbc:mysql://localhost:3306/lost_found?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: user
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
   redis:
     host: localhost

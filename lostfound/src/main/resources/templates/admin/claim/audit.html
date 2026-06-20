@@ -7,11 +7,11 @@
     <style>
         :root { --sidebar-width: 250px; } * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f2f5; }
-        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #304156; }
+        .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #304156; z-index: 100; overflow-y: auto; }
         .sidebar .logo { height: 60px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); text-decoration: none; }
-        .sidebar .nav { padding: 10px 0; } .sidebar .nav a { display: flex; align-items: center; padding: 12px 20px; color: #bfcbd9; text-decoration: none; font-size: 14px; }
-        .sidebar .nav a:hover, .sidebar .nav a.active { color: #fff; background: rgba(64,158,255,0.3); } .sidebar .nav a i { margin-right: 10px; }
-        .sidebar .nav .section { padding: 15px 20px 5px; color: #8899aa; font-size: 12px; }
+        .sidebar .nav { padding: 10px 0; } .sidebar .nav a { display: block; padding: 12px 20px; color: #bfcbd9; text-decoration: none; font-size: 14px; }
+        .sidebar .nav a:hover, .sidebar .nav a.active { color: #fff; background: rgba(64,158,255,0.3); } .sidebar .nav a i { display: inline-block; width: 22px; margin-right: 8px; font-size: 16px; text-align: center; vertical-align: middle; }
+        .sidebar .nav .section { margin-top: 14px; padding: 10px 20px 6px; color: #f0a0c0; font-size: 13px; font-weight: 700; font-style: italic; letter-spacing: 1px; border-top: 1px solid #000; }
         .main-content { margin-left: var(--sidebar-width); min-height: 100vh; }
         .topbar { height: 60px; background: #fff; border-bottom: 1px solid #e6e6e6; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
         .content { padding: 20px; max-width: 900px; }
@@ -19,12 +19,17 @@
 </head>
 <body>
     <div class="sidebar">
-        <a class="logo" href="/admin/dashboard"><i class="bi bi-search"></i>&nbsp; 失物招领管理</a>
+        <a class="logo" th:href="@{/admin/dashboard}"><i class="bi bi-search"></i>&nbsp; 失物招领管理</a>
         <div class="nav">
-            <a href="/admin/dashboard"><i class="bi bi-speedometer2"></i> 控制台首页</a>
-            <div class="section">内容管理</div><a href="/admin/lost/list"><i class="bi bi-journal-text"></i> 失物/寻物管理</a><a href="/admin/lost/audit"><i class="bi bi-check-circle"></i> 发布审核</a>
-            <div class="section">认领与互动</div><a href="/admin/claim/list" class="active"><i class="bi bi-file-earmark-text"></i> 认领申请</a><a href="/admin/comment/list"><i class="bi bi-chat-dots"></i> 评论维护</a>
-            <div class="section">系统设置</div><a href="/admin/user/list"><i class="bi bi-people"></i> 用户管理</a>
+            <a th:href="@{/admin/dashboard}"><i class="bi bi-speedometer2"></i> 控制台首页</a>
+            <div class="section">内容管理</div>
+            <a th:href="@{/admin/lost/list}"><i class="bi bi-journal-text"></i> 失物/寻物管理</a>
+            <a th:href="@{/admin/lost/audit}"><i class="bi bi-check-circle"></i> 发布审核</a>
+            <div class="section">认领与互动</div>
+            <a th:href="@{/admin/claim/list}" class="active"><i class="bi bi-file-earmark-text"></i> 认领申请</a>
+            <a th:href="@{/admin/comment/list}"><i class="bi bi-chat-dots"></i> 评论维护</a>
+            <div class="section">系统设置</div>
+            <a th:href="@{/admin/user/list}"><i class="bi bi-people"></i> 用户管理</a>
         </div>
     </div>
     <div class="main-content">

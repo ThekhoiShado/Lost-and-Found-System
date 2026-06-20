@@ -1,21 +1,21 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["env.d.ts", "src/**/*", "src/**/*.vue"],
-  "exclude": ["src/**/__tests__/*"],
-  "compilerOptions": {
+  "extends": "@vue/tsconfig/tsconfig.dom.json", // 继承 Vue 配置
+  "include": ["env.d.ts", "src/**/*", "src/**/*.vue"], // 包含项目源代码和 Vue 文件
+  "exclude": ["src/**/__tests__/*"], // 排除测试文件
+  "compilerOptions": { // 编译器选项
     // Extra safety for array and object lookups, but may have false positives.
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": true, // 禁用未检查的索引访问, 避免运行时错误
 
     // 跳过库类型检查（解决 @wangeditor/editor-for-vue 等库的类型声明兼容问题）
-    "skipLibCheck": true,
-
+    "skipLibCheck": true, // 跳过库类型检查, 避免类型检查错误
+ 
     // Path mapping for cleaner imports.
-    "paths": {
-      "@/*": ["./src/*"]
+    "paths": { // 路径映射, 方便导入
+      "@/*": ["./src/*"] // 映射 @/* 到 ./src/*
     },
 
     // `vue-tsc --build` produces a .tsbuildinfo file for incremental type-checking.
     // Specified here to keep it out of the root directory.
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo" // 类型检查信息文件
   }
 }

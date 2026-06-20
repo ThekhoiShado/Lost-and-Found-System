@@ -13,10 +13,10 @@
         .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-width); background: #304156; z-index: 100; }
         .sidebar .logo { height: 60px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); text-decoration: none; }
         .sidebar .nav { padding: 10px 0; }
-        .sidebar .nav a { display: flex; align-items: center; padding: 12px 20px; color: #bfcbd9; text-decoration: none; font-size: 14px; }
+        .sidebar .nav a { display: block; padding: 12px 20px; color: #bfcbd9; text-decoration: none; font-size: 14px; }
         .sidebar .nav a:hover, .sidebar .nav a.active { color: #fff; background: rgba(64,158,255,0.3); }
-        .sidebar .nav a i { margin-right: 10px; font-size: 18px; }
-        .sidebar .nav .section { padding: 15px 20px 5px; color: #8899aa; font-size: 12px; }
+        .sidebar .nav a i { display: inline-block; width: 22px; margin-right: 8px; font-size: 16px; text-align: center; vertical-align: middle; }
+        .sidebar .nav .section { margin-top: 14px; padding: 10px 20px 6px; color: #f0a0c0; font-size: 13px; font-weight: 700; font-style: italic; letter-spacing: 1px; border-top: 1px solid #000; }
         .main-content { margin-left: var(--sidebar-width); min-height: 100vh; }
         .topbar { height: 60px; background: #fff; border-bottom: 1px solid #e6e6e6; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
         .content { padding: 20px; }
@@ -26,17 +26,17 @@
 </head>
 <body>
     <div class="sidebar">
-        <a class="logo" href="/admin/dashboard"><i class="bi bi-search"></i>&nbsp; 失物招领管理</a>
+        <a class="logo" th:href="@{/admin/dashboard}"><i class="bi bi-search"></i>&nbsp; 失物招领管理</a>
         <div class="nav">
-            <a href="/admin/dashboard"><i class="bi bi-speedometer2"></i> 控制台首页</a>
+            <a th:href="@{/admin/dashboard}"><i class="bi bi-speedometer2"></i> 控制台首页</a>
             <div class="section">内容管理</div>
-            <a href="/admin/lost/list"><i class="bi bi-journal-text"></i> 失物/寻物管理</a>
-            <a href="/admin/lost/audit" class="active"><i class="bi bi-check-circle"></i> 发布审核</a>
+            <a th:href="@{/admin/lost/list}"><i class="bi bi-journal-text"></i> 失物/寻物管理</a>
+            <a th:href="@{/admin/lost/audit}" class="active"><i class="bi bi-check-circle"></i> 发布审核</a>
             <div class="section">认领与互动</div>
-            <a href="/admin/claim/list"><i class="bi bi-file-earmark-text"></i> 认领申请</a>
-            <a href="/admin/comment/list"><i class="bi bi-chat-dots"></i> 评论维护</a>
+            <a th:href="@{/admin/claim/list}"><i class="bi bi-file-earmark-text"></i> 认领申请</a>
+            <a th:href="@{/admin/comment/list}"><i class="bi bi-chat-dots"></i> 评论维护</a>
             <div class="section">系统设置</div>
-            <a href="/admin/user/list"><i class="bi bi-people"></i> 用户管理</a>
+            <a th:href="@{/admin/user/list}"><i class="bi bi-people"></i> 用户管理</a>
         </div>
     </div>
     <div class="main-content">
@@ -87,9 +87,25 @@
                 var item = res.data;
                 var html = '<div class="detail-panel"><h5>' + item.title + '</h5>' +
                     '<p><strong>类型：</strong>' + (item.type===1?'失物招领':'寻物启事') + ' | <strong>分类：</strong>' + (item.category||'-') + '</p>' +
-                    '<p><strong>联系方式：</strong>' + item.contact + ' | <strong>地点：</strong>' + (item.location||'-') + '</p>' +
-                    '<div class="border p-3 my-2">' + item.content + '</div></div>';
-                // 在表格下方显示详情
+                    '<p><strong>联系方式：</strong>' + item.contact + ' | <strong>地点：</strong>' + (item.location||'-') + '</p>';
+                // 封面图预览
+                if (item.coverImage) {
+                    html += '<div class="mb-3"><strong>封面图：</strong><br><img src="' + item.coverImage + '" style="max-width:300px;max-height:200px;border-radius:6px;margin-top:6px;" onerror="this.style.display=\'none\'" /></div>';
+                }
+                // 多图预览
+                if (item.images) {
+                    try {
+                        var imgs = JSON.parse(item.images);
+                        if (imgs.length > 0) {
+                            html += '<div class="mb-3"><strong>更多图片：</strong><br><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">';
+                            imgs.forEach(function(url) {
+                                html += '<img src="' + url + '" style="width:100px;height:100px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'" />';
+                            });
+                            html += '</div></div>';
+                        }
+                    } catch(e) {}
+                }
+                html += '<div class="border p-3 my-2">' + item.content + '</div></div>';
                 var existing = $('#detail-panel');
                 if (existing.length) existing.remove(); else $('#table-container').after('<div id="detail-panel">'+html+'</div>');
             });

@@ -1,27 +1,28 @@
-// TSConfig for modules that run in Node.js environment via either transpilation or type-stripping.
+// Node.js 环境下的 TypeScript 配置
 {
-  "extends": "@tsconfig/node24/tsconfig.json",
+  "extends": "@tsconfig/node24/tsconfig.json", // 继承 Node.js 24.x 配置
   "include": [
-    "vite.config.*",
-    "vitest.config.*",
-    "cypress.config.*",
-    "playwright.config.*",
-    "eslint.config.*"
+    "vite.config.*", // 包含 Vite 配置文件
+    "vitest.config.*", // 包含 Vitest 配置文件
+    "cypress.config.*", // 包含 Cypress 配置文件
+    "playwright.config.*", // 包含 Playwright 配置文件
+    "eslint.config.*" // 包含 ESLint 配置文件
   ],
+  // 编译器选项
   "compilerOptions": {
     // Most tools use transpilation instead of Node.js's native type-stripping.
     // Bundler mode provides a smoother developer experience.
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    "module": "preserve", // 保持模块格式
+    "moduleResolution": "bundler", // 模块解析模式
 
     // Include Node.js types and avoid accidentally including other `@types/*` packages.
-    "types": ["node"],
+    "types": ["node"], // 包含 Node.js 类型
 
     // Disable emitting output during `vue-tsc --build`, which is used for type-checking only.
-    "noEmit": true,
+    "noEmit": true, // 禁用输出, 仅用于类型检查
 
     // `vue-tsc --build` produces a .tsbuildinfo file for incremental type-checking.
     // Specified here to keep it out of the root directory.
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo" // 类型检查信息文件
   }
 }

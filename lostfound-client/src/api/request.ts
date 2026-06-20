@@ -7,9 +7,11 @@ import router from '@/router'
  * Axios 实例 - 统一请求封装
  */
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-  timeout: 15000,
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 15000
+  // 不设置默认 Content-Type：axios 会自动根据 data 类型设置
+  // — 普通对象 → application/json
+  // — FormData → multipart/form-data（让浏览器设置 boundary）
 })
 
 // 请求拦截器 - 自动携带 Token

@@ -1,1 +1,0 @@
-import{r as e}from"./index-CzBkzS04.js";var t={getList(t){return e.get(`/lost/list`,{params:t})},getDetail(t){return e.get(`/lost/${t}`)},publish(t){return e.post(`/lost/publish`,t)},update(t,n){return e.put(`/lost/${t}`,n)},delete(t){return e.delete(`/lost/${t}`)},getMyPosts(t=1,n=10){return e.get(`/lost/my`,{params:{current:t,size:n}})}};export{t};

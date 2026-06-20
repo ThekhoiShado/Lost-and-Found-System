@@ -64,9 +64,21 @@ public class LostItemServiceImpl implements LostItemService {
             throw new BusinessException("只能修改自己发布的信息");
         }
 
+        // 保存原有图片 URL，防止被空字符串覆盖
+        String originalCoverImage = item.getCoverImage();
+        String originalImages = item.getImages();
+
         BeanUtils.copyProperties(request, item);
         item.setId(itemId);
         item.setUserId(userId);
+
+        // 如果新提交的封面图为空，保留原有封面图
+        if (!StringUtils.hasText(request.getCoverImage())) {
+            item.setCoverImage(originalCoverImage);
+        }
+        if (!StringUtils.hasText(request.getImages())) {
+            item.setImages(originalImages);
+        }
 
         if (StringUtils.hasText(request.getLostDate())) {
             try {

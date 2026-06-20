@@ -5,6 +5,8 @@ import { useUserStore } from '@/store/modules/user'
 import { lostApi } from '@/api/lost'
 import { commentApi } from '@/api/comment'
 import { claimApi } from '@/api/claim'
+import { uploadApi } from '@/api/user'
+import type { UploadFile } from 'element-plus'
 import { getTypeText, getTypeColor, getStatusText, getStatusColor, formatDate } from '@/utils'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -21,8 +23,58 @@ const claimDialogVisible = ref(false)
 const claimForm = ref({
   claimantName: '',
   claimantPhone: '',
-  claimDetail: ''
+  claimDetail: '',
+  proofImages: '[]'
 })
+
+// 凭证图片上传（axios 手动上传）
+const proofImageList = ref<string[]>([])
+const uploadingProof = ref(false)
+
+async function onProofChange(file: UploadFile) {
+  const rawFile = file.raw
+  if (!rawFile) return
+  const mimeType = rawFile.type || ''
+  const fileName = rawFile.name || file.name || ''
+  const isImage = mimeType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName)
+  if (!isImage) { ElMessage.error('只能上传图片文件'); return }
+  if (rawFile.size / 1024 / 1024 > 10) { ElMessage.error('图片大小不能超过 10MB'); return }
+
+  uploadingProof.value = true
+  try {
+    const res = await uploadApi.uploadImage(rawFile)
+    const url = res.data?.data
+    if (url) {
+      proofImageList.value.push(url)
+      claimForm.value.proofImages = JSON.stringify(proofImageList.value)
+      ElMessage.success('凭证上传成功')
+    } else {
+      ElMessage.error('凭证上传失败：返回数据异常')
+    }
+  } catch (e: any) {
+    console.error('凭证上传失败', e)
+    ElMessage.error('凭证上传失败')
+  }
+  uploadingProof.value = false
+}
+
+// 移除凭证图片
+function removeProofImage(index: number) {
+  proofImageList.value.splice(index, 1)
+  claimForm.value.proofImages = JSON.stringify(proofImageList.value)
+}
+
+// 打开认领弹窗时重置凭证图片
+function openClaimDialog() {
+  proofImageList.value = []
+  claimForm.value = {
+    claimantName: '',
+    claimantPhone: '',
+    claimDetail: '',
+    proofImages: '[]'
+  }
+  claimDialogVisible.value = true
+}
 
 // 评论输入
 const commentText = ref('')
@@ -83,9 +135,8 @@ async function submitComment() {
 
 // 回复评论
 function replyComment(comment: any) {
-  replyTo.value = { id: comment.id, username: comment.username || comment.nickname }
+  replyTo.value = { id: comment.id, username: comment.nickname || comment.username }
   commentText.value = ''
-  // 滚动到评论框
   document.getElementById('comment-input')?.scrollIntoView({ behavior: 'smooth' })
 }
 
@@ -112,7 +163,7 @@ async function deleteComment(commentId: number) {
   } catch { /* cancelled */ }
 }
 
-// 编辑
+// 编辑信息
 function editItem() {
   router.push(`/publish/${item.value.id}`)
 }
@@ -131,114 +182,219 @@ onMounted(() => loadDetail())
 </script>
 
 <template>
-  <div v-loading="loading">
-    <div v-if="item">
-      <!-- 标题和操作 -->
-      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px;flex-wrap:wrap;">
-        <div>
-          <el-tag :color="getTypeColor(item.type)" style="color:#fff;border:none;" size="small">
+  <div class="detail-page" v-loading="loading">
+    <!-- 面包屑导航 -->
+    <el-breadcrumb separator=">" class="detail-breadcrumb">
+      <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+      <el-breadcrumb-item v-if="item">{{ getTypeText(item.type) }}</el-breadcrumb-item>
+      <el-breadcrumb-item v-if="item">{{ item.title }}</el-breadcrumb-item>
+    </el-breadcrumb>
+
+    <div v-if="item" class="detail-container">
+      <!-- 标题区 -->
+      <div class="detail-header">
+        <div class="detail-tags">
+          <el-tag :color="getTypeColor(item.type)" effect="dark">
             {{ getTypeText(item.type) }}
           </el-tag>
-          <el-tag :color="getStatusColor(item.status)" style="color:#fff;border:none;margin-left:8px;" size="small">
+          <el-tag :color="getStatusColor(item.status)" effect="dark">
             {{ getStatusText(item.status) }}
           </el-tag>
-          <h2 style="margin:12px 0 8px;">{{ item.title }}</h2>
-          <div style="color:#909399;font-size:13px;">
-            <span>{{ item.nickname || item.username }}</span>
-            <span style="margin:0 8px;">|</span>
-            <span>{{ formatDate(item.createTime) }}</span>
-            <span v-if="item.location" style="margin:0 8px;">|</span>
-            <span v-if="item.location">📍 {{ item.location }}</span>
-            <span style="margin:0 8px;">|</span>
-            <span>👁 {{ (item.viewCount || 0) + 1 }}</span>
-          </div>
         </div>
-        <div v-if="isOwner" style="display:flex;gap:8px;">
-          <el-button size="small" @click="editItem">编辑</el-button>
-          <el-button size="small" type="danger" @click="deleteItem">删除</el-button>
+        <h1 class="detail-title">{{ item.title }}</h1>
+        <div class="detail-meta">
+          <span class="meta-item">
+            <el-icon><User /></el-icon> {{ item.nickname || item.username }}
+          </span>
+          <span class="meta-divider">|</span>
+          <span class="meta-item">
+            <el-icon><Clock /></el-icon> {{ formatDate(item.createTime) }}
+          </span>
+          <span class="meta-divider">|</span>
+          <span class="meta-item">
+            <el-icon><View /></el-icon> {{ (item.viewCount || 0) }} 次浏览
+          </span>
+          <span v-if="item.location" class="meta-divider">|</span>
+          <span v-if="item.location" class="meta-item">
+            <el-icon><Location /></el-icon> {{ item.location }}
+          </span>
         </div>
       </div>
 
       <!-- 图片 -->
-      <div v-if="item.coverImage" style="margin-bottom:16px;">
-        <img :src="item.coverImage" style="max-width:100%;max-height:400px;border-radius:8px;" />
+      <div v-if="item.coverImage" class="detail-image-wrap">
+        <img :src="item.coverImage" :alt="item.title" class="detail-image" />
       </div>
 
-      <!-- 富文本内容 -->
-      <div class="card" style="padding:24px;margin-bottom:16px;">
-        <div class="rich-text-content" v-html="item.content"></div>
+      <!-- 内容区：两栏布局 -->
+      <div class="detail-body">
+        <!-- 左侧：富文本内容 -->
+        <div class="detail-content">
+          <h3 class="section-title">详细信息</h3>
+          <div class="rich-text-content" v-html="item.content"></div>
+        </div>
+
+        <!-- 右侧：信息面板 -->
+        <div class="detail-info-panel">
+          <div class="info-card">
+            <h3 class="info-card-title">
+              <el-icon><InfoFilled /></el-icon> 基本信息
+            </h3>
+            <div class="info-row">
+              <span class="info-label">分类</span>
+              <span class="info-value">{{ item.category || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">地点</span>
+              <span class="info-value">{{ item.location || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">日期</span>
+              <span class="info-value">{{ item.lostDate || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">发布者</span>
+              <span class="info-value">{{ item.nickname || item.username }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">联系方式</span>
+              <span class="info-value info-value--contact">{{ item.contact }}</span>
+            </div>
+          </div>
+
+          <!-- 操作按钮区 -->
+          <div class="info-actions">
+            <!-- 认领按钮（非发布者+已登录+已发布状态） -->
+            <el-button
+              v-if="userStore.isLoggedIn && !isOwner && item.status === 1"
+              type="primary"
+              size="large"
+              class="claim-btn"
+              @click="openClaimDialog"
+            >
+              <el-icon><ChatDotSquare /></el-icon> 提交认领申请
+            </el-button>
+
+            <!-- 发布者操作 -->
+            <div v-if="isOwner" class="owner-actions">
+              <el-button @click="editItem">
+                <el-icon><Edit /></el-icon> 编辑
+              </el-button>
+              <el-button type="danger" @click="deleteItem">
+                <el-icon><Delete /></el-icon> 删除
+              </el-button>
+            </div>
+
+            <!-- 未登录提示 -->
+            <div v-if="!userStore.isLoggedIn && item.status === 1" class="login-tip">
+              <router-link to="/login">登录</router-link> 后可以提交认领申请
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- 联系信息 -->
-      <div class="card" style="padding:16px;margin-bottom:16px;background:#f0f9ff;">
-        <p><strong>📞 联系方式：</strong>{{ item.contact }}</p>
-        <p v-if="item.lostDate"><strong>📅 日期：</strong>{{ item.lostDate }}</p>
-        <p v-if="item.category"><strong>📂 分类：</strong>{{ item.category }}</p>
-      </div>
-
-      <!-- 操作按钮 -->
-      <div v-if="userStore.isLoggedIn && !isOwner && item.status === 1" style="margin-bottom:24px;">
-        <el-button type="primary" @click="claimDialogVisible = true">📝 提交认领申请</el-button>
-      </div>
-
-      <!-- 评论区域 -->
-      <div class="card" style="padding:20px;margin-top:24px;">
-        <h3 style="margin-bottom:16px;">💬 留言板 ({{ comments.length }})</h3>
+      <!-- 评论区 -->
+      <div class="comment-section">
+        <h3 class="comment-section-title">
+          💬 留言板
+          <span class="comment-count">{{ comments.length }}</span>
+        </h3>
 
         <!-- 评论输入 -->
-        <div v-if="userStore.isLoggedIn" style="margin-bottom:20px;" id="comment-input">
-          <div v-if="replyTo" style="margin-bottom:8px;color:#909399;font-size:13px;">
+        <div v-if="userStore.isLoggedIn" id="comment-input" class="comment-input-area">
+          <div v-if="replyTo" class="reply-indicator">
             回复 @{{ replyTo.username }}
             <el-button link type="danger" size="small" @click="replyTo = null">取消</el-button>
           </div>
-          <el-input v-model="commentText" type="textarea" :rows="3" placeholder="写下你的留言..." />
-          <el-button type="primary" size="small" style="margin-top:8px;" @click="submitComment">
+          <el-input
+            v-model="commentText"
+            type="textarea"
+            :rows="3"
+            placeholder="写下你的留言..."
+          />
+          <el-button
+            type="primary"
+            size="small"
+            class="comment-submit-btn"
+            @click="submitComment"
+          >
             {{ replyTo ? '回复' : '发表评论' }}
           </el-button>
         </div>
-        <div v-else style="margin-bottom:20px;text-align:center;">
+        <div v-else class="comment-login-tip">
           <router-link to="/login">登录</router-link> 后参与评论
         </div>
 
         <!-- 评论列表 -->
-        <div v-if="comments.length === 0" style="text-align:center;color:#909399;padding:20px;">
+        <div v-if="comments.length === 0" class="comment-empty">
           暂无留言，来写第一条吧
         </div>
-        <div v-else>
-          <div v-for="comment in comments" :key="comment.id" style="border-bottom:1px solid #f0f0f0;padding:12px 0;">
-            <div style="display:flex;gap:10px;">
-              <el-avatar :size="36" :src="comment.avatar">
+        <div v-else class="comment-list">
+          <div
+            v-for="comment in comments"
+            :key="comment.id"
+            class="comment-item"
+          >
+            <div class="comment-main">
+              <el-avatar :size="36" :src="comment.avatar" class="comment-avatar">
                 {{ (comment.nickname || comment.username || '?')[0] }}
               </el-avatar>
-              <div style="flex:1;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <div>
-                    <strong>{{ comment.nickname || comment.username }}</strong>
-                    <span v-if="comment.top === 1" style="color:#e6a23c;margin-left:8px;">⭐ 置顶</span>
+              <div class="comment-body">
+                <div class="comment-header">
+                  <div class="comment-user-info">
+                    <strong class="comment-username">{{ comment.nickname || comment.username }}</strong>
+                    <span v-if="comment.top === 1" class="top-badge">⭐ 置顶</span>
                   </div>
-                  <span style="font-size:12px;color:#c0c4cc;">{{ formatDate(comment.createTime) }}</span>
+                  <span class="comment-time">{{ formatDate(comment.createTime, 'MM-dd HH:mm') }}</span>
                 </div>
-                <p style="margin:6px 0;">{{ comment.content }}</p>
-                <div style="display:flex;gap:16px;font-size:13px;color:#909399;">
-                  <span style="cursor:pointer;" @click="toggleLike(comment.id)">
+                <p class="comment-content-text">{{ comment.content }}</p>
+                <div class="comment-actions">
+                  <span class="action-item" @click="toggleLike(comment.id)">
                     👍 {{ comment.likeCount || 0 }}
                   </span>
-                  <span style="cursor:pointer;" @click="replyComment(comment)">💬 回复</span>
-                  <span v-if="userStore.userId === comment.userId"
-                        style="cursor:pointer;color:#f56c6c;" @click="deleteComment(comment.id)">删除</span>
+                  <span class="action-item" @click="replyComment(comment)">
+                    💬 回复
+                  </span>
+                  <span
+                    v-if="userStore.userId === comment.userId"
+                    class="action-item action-item--danger"
+                    @click="deleteComment(comment.id)"
+                  >
+                    删除
+                  </span>
                 </div>
 
                 <!-- 子回复 -->
-                <div v-if="comment.children?.length" style="margin-top:8px;padding-left:16px;border-left:2px solid #f0f0f0;">
-                  <div v-for="reply in comment.children" :key="reply.id" style="padding:8px 0;border-bottom:1px dashed #f5f5f5;">
-                    <strong>{{ reply.nickname || reply.username }}</strong>
-                    <span v-if="reply.replyToUsername" style="color:#909399;"> 回复 @{{ reply.replyToUsername }}</span>
-                    <span style="font-size:12px;color:#c0c4cc;margin-left:8px;">{{ formatDate(reply.createTime) }}</span>
-                    <p style="margin:4px 0;">{{ reply.content }}</p>
-                    <div style="font-size:12px;color:#909399;">
-                      <span style="cursor:pointer;" @click="toggleLike(reply.id)">👍 {{ reply.likeCount || 0 }}</span>
-                      <span v-if="userStore.userId === reply.userId"
-                            style="cursor:pointer;color:#f56c6c;margin-left:12px;" @click="deleteComment(reply.id)">删除</span>
+                <div v-if="comment.children?.length" class="comment-replies">
+                  <div
+                    v-for="reply in comment.children"
+                    :key="reply.id"
+                    class="reply-item"
+                  >
+                    <el-avatar :size="24" :src="reply.avatar" class="reply-avatar">
+                      {{ (reply.nickname || reply.username || '?')[0] }}
+                    </el-avatar>
+                    <div class="reply-body">
+                      <div class="reply-header">
+                        <strong class="reply-username">{{ reply.nickname || reply.username }}</strong>
+                        <span v-if="reply.replyToUsername" class="reply-to">
+                          回复 @{{ reply.replyToUsername }}
+                        </span>
+                        <span class="reply-time">{{ formatDate(reply.createTime, 'MM-dd HH:mm') }}</span>
+                      </div>
+                      <p class="reply-content">{{ reply.content }}</p>
+                      <div class="reply-actions">
+                        <span class="action-item" @click="toggleLike(reply.id)">
+                          👍 {{ reply.likeCount || 0 }}
+                        </span>
+                        <span
+                          v-if="userStore.userId === reply.userId"
+                          class="action-item action-item--danger"
+                          @click="deleteComment(reply.id)"
+                        >
+                          删除
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -258,8 +414,33 @@ onMounted(() => loadDetail())
             <el-input v-model="claimForm.claimantPhone" placeholder="请输入联系电话" />
           </el-form-item>
           <el-form-item label="认领说明">
-            <el-input v-model="claimForm.claimDetail" type="textarea" :rows="4"
-                      placeholder="请详细描述您与该物品的关系或提供凭证信息" />
+            <el-input
+              v-model="claimForm.claimDetail"
+              type="textarea"
+              :rows="4"
+              placeholder="请详细描述您与该物品的关系或提供凭证信息"
+            />
+          </el-form-item>
+          <el-form-item label="凭证图片">
+            <div v-if="proofImageList.length > 0" class="proof-image-list">
+              <div v-for="(url, i) in proofImageList" :key="i" class="proof-image-item">
+                <img :src="url" alt="凭证图片" />
+                <el-button type="danger" size="small" circle class="proof-remove-btn" @click="removeProofImage(i)">
+                  <el-icon><Close /></el-icon>
+                </el-button>
+              </div>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="onProofChange"
+              accept="image/*"
+            >
+              <el-button size="small" :loading="uploadingProof">
+                <el-icon><Plus /></el-icon> 添加凭证图片
+              </el-button>
+            </el-upload>
+            <span class="upload-hint">上传能证明物品归属的图片，如购买记录、照片等</span>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -269,8 +450,435 @@ onMounted(() => loadDetail())
       </el-dialog>
     </div>
 
-    <div v-else-if="!loading" style="text-align:center;padding:60px;">
+    <!-- 信息不存在 -->
+    <div v-else-if="!loading" class="detail-empty">
       <el-empty description="信息不存在或已删除" />
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ===== 布局容器 ===== */
+.detail-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.detail-breadcrumb {
+  margin-bottom: 20px;
+}
+
+.detail-empty {
+  text-align: center;
+  padding: 60px 0;
+}
+
+/* ===== 标题区 ===== */
+.detail-header {
+  margin-bottom: 20px;
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.detail-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--primary, #00A884);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.detail-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-divider {
+  color: #ddd;
+  margin: 0 8px;
+}
+
+/* ===== 图片 ===== */
+.detail-image-wrap {
+  text-align: center;
+  margin-bottom: 24px;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid var(--border-light, #f0f0f0);
+}
+
+.detail-image {
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+/* ===== 内容两栏布局 ===== */
+.detail-body {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* 左侧：富文本 */
+.detail-content {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-white, #fff);
+  border: 1px solid var(--border-base, #e8e8e8);
+  border-radius: var(--radius-md, 4px);
+  padding: 24px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary, #00A884);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
+  margin-bottom: 16px;
+}
+
+/* 右侧面板 */
+.detail-info-panel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.info-card {
+  background: var(--bg-white, #fff);
+  border: 1px solid var(--border-base, #e8e8e8);
+  border-radius: var(--radius-md, 4px);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+}
+
+.info-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--primary, #00A884);
+}
+
+.info-row {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-light, #f0f0f0);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--text-secondary, #999);
+  width: 65px;
+  flex-shrink: 0;
+}
+
+.info-value {
+  color: var(--text-primary, #333);
+  flex: 1;
+  word-break: break-all;
+}
+
+.info-value--contact {
+  color: var(--primary, #00A884);
+  font-weight: 600;
+}
+
+/* 操作按钮 */
+.info-actions {
+  margin-top: 16px;
+}
+
+.claim-btn {
+  width: 100%;
+}
+
+.owner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.login-tip {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  padding: 12px 0;
+}
+
+/* ===== 评论区 ===== */
+.comment-section {
+  background: var(--bg-white, #fff);
+  border: 1px solid var(--border-base, #e8e8e8);
+  border-radius: var(--radius-md, 4px);
+  padding: 24px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+}
+
+.comment-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--text-primary, #333);
+}
+
+.comment-count {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+/* 评论输入 */
+.comment-input-area {
+  margin-bottom: 24px;
+}
+
+.reply-indicator {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 8px;
+}
+
+.comment-submit-btn {
+  margin-top: 8px;
+}
+
+.comment-login-tip {
+  text-align: center;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+}
+
+.comment-empty {
+  text-align: center;
+  color: var(--text-secondary, #999);
+  padding: 30px 0;
+  font-size: 13px;
+}
+
+/* 评论列表 */
+.comment-list {
+  margin-top: 8px;
+}
+
+.comment-item {
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
+  padding: 14px 0;
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-main {
+  display: flex;
+  gap: 12px;
+}
+
+.comment-avatar {
+  flex-shrink: 0;
+}
+
+.comment-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.comment-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-username {
+  font-size: 14px;
+  color: var(--text-primary, #333);
+}
+
+.top-badge {
+  font-size: 12px;
+  color: #e6a23c;
+}
+
+.comment-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.comment-content-text {
+  font-size: 14px;
+  color: var(--text-regular, #666);
+  margin: 6px 0;
+  line-height: 1.6;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+}
+
+.action-item {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.action-item:hover {
+  color: var(--primary, #00A884);
+}
+
+.action-item--danger:hover {
+  color: #f56c6c;
+}
+
+/* 子回复 */
+.comment-replies {
+  margin-top: 10px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border-light, #f0f0f0);
+}
+
+.reply-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f5f5f5;
+}
+
+.reply-item:last-child {
+  border-bottom: none;
+}
+
+.reply-avatar {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.reply-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reply-username {
+  font-size: 13px;
+  color: var(--text-primary, #333);
+}
+
+.reply-to {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.reply-time {
+  font-size: 11px;
+  color: #c0c4cc;
+}
+
+.reply-content {
+  font-size: 13px;
+  color: var(--text-regular, #666);
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.reply-actions {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+/* ===== 凭证图片上传 ===== */
+.proof-image-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.proof-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.proof-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-md, 4px);
+  border: 1px solid var(--border-base, #e8e8e8);
+}
+
+.proof-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+}
+
+.upload-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin-top: 4px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .detail-body {
+    flex-direction: column;
+  }
+
+  .detail-info-panel {
+    width: 100%;
+  }
+
+  .detail-title {
+    font-size: 18px;
+  }
+}
+</style>

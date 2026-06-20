@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 失物招领系统启动类
  */
 @SpringBootApplication
-@MapperScan("com.lostfound.mapper")
+@MapperScan("com.lostfound.mapper") // 扫描MyBatis Mapper接口
 public class LostfoundApplication {
 
     public static void main(String[] args) {
